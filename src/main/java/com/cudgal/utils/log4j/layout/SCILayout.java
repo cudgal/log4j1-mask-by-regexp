@@ -21,6 +21,9 @@ public class SCILayout extends PatternLayout{
     private String findRegExpList;
     private String maskRegExpList;
     private String regExpListDelimiter;
+    private boolean maskConfCorrect = false;
+    private List<Pattern> findRegExpListAsObj;
+    private List<String> maskRegExpListAsObj;
 
     public String getFindRegExpList() {
         return findRegExpList;
@@ -50,58 +53,79 @@ public class SCILayout extends PatternLayout{
     public String format(LoggingEvent event) {
         String result = super.format(event);
 
-        List<String> findRegExpListAsObj = prepareFindRegExpList();
-        List<String> maskRegExpListAsObj = prepareMaskRegExpList();
-
-        if (findRegExpListAsObj != null
-            && maskRegExpListAsObj != null
-            && findRegExpListAsObj.size() > 0
-            && findRegExpListAsObj.size() == maskRegExpListAsObj.size()) {
-            for (int i = 0; i < findRegExpListAsObj.size(); i++) {
-                result = mask(
-                    result,
-                    findRegExpListAsObj.get(i),
-                    maskRegExpListAsObj.get(i)
-                );
-            }
-        }
-        return result;
-    }
-
-    private List<String> prepareFindRegExpList() {
-        return prepareRegExpList(findRegExpList);
-    }
-
-    private List<String> prepareMaskRegExpList() {
-        return prepareRegExpList(maskRegExpList);
-    }
-
-    private List<String> prepareRegExpList(String regExpAsString) {
-        List<String> result = new ArrayList<String>();
-
-        if (regExpListDelimiter == null || regExpListDelimiter.equals("")) {
-            result.add(regExpAsString);
+        if (!maskConfCorrect) {
             return result;
         }
 
-        result.addAll(
-            Arrays.asList(
-                regExpAsString.split(regExpListDelimiter)
-            )
-        );
+        for (int i = 0; i < findRegExpListAsObj.size(); i++) {
+            result = mask(
+                result,
+                findRegExpListAsObj.get(i),
+                maskRegExpListAsObj.get(i)
+            );
+        }
 
         return result;
     }
 
-    public String mask(String stringForMask, String findRegExp, String maskRegExp) {
-        StringBuffer buffer = new StringBuffer();
+    private List<Pattern> prepareFindRegExpList() {
+        List<Pattern> result = new ArrayList<Pattern>();
 
-        Matcher matcher = Pattern.compile(findRegExp).matcher(stringForMask);
-        while (matcher.find()) {
-            matcher.appendReplacement(buffer, maskRegExp);
+        if (regExpListDelimiter == null || regExpListDelimiter.equals("")) {
+            result.add(
+                Pattern.compile(findRegExpList)
+            );
+            return result;
         }
-        matcher.appendTail(buffer);
 
-        return buffer.toString();
+
+        for (String curPatternAsString : Arrays.asList(findRegExpList.split(regExpListDelimiter))) {
+            result.add(
+                Pattern.compile(curPatternAsString)
+            );
+        }
+
+
+        return result;
+    }
+
+    private List<String> prepareMaskRegExpList() {
+        List<String> result = new ArrayList<String>();
+
+        if (regExpListDelimiter == null || regExpListDelimiter.equals("")) {
+            result.add(
+                maskRegExpList
+            );
+            return result;
+        }
+
+
+        for (String curPatternAsString : Arrays.asList(maskRegExpList.split(regExpListDelimiter))) {
+            result.add(
+                curPatternAsString
+            );
+        }
+
+
+        return result;
+    }
+
+
+    private String mask(String stringForMask, Pattern findRegExp, String maskRegExp) {
+        Matcher matcher = findRegExp.matcher(stringForMask);
+        return matcher.replaceAll(maskRegExp);
+    }
+
+    @Override
+    public void activateOptions() {
+        super.activateOptions();
+
+        this.findRegExpListAsObj = prepareFindRegExpList();
+        this.maskRegExpListAsObj = prepareMaskRegExpList();
+
+        maskConfCorrect = findRegExpListAsObj != null
+            && maskRegExpListAsObj != null
+            && findRegExpListAsObj.size() > 0
+            && findRegExpListAsObj.size() == maskRegExpListAsObj.size();
     }
 }
